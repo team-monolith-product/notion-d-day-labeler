@@ -10,9 +10,10 @@ GitHub Pull Request 생성 이벤트가 발생할 때,
 PR 이벤트가 아닌 경우 레포지토리의 모든 PR을 대상으로 D-Day 라벨을 갱신합니다.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 import re
+from zoneinfo import ZoneInfo
 
 import dotenv
 
@@ -147,11 +148,11 @@ def calculate_d_day_label(due_date_str: str | None) -> str | None:
     except ValueError:
         return None
 
-    now_utc = datetime.now(timezone.utc)
+    now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
     # due_date도 timezone이 UTC가 아닐 수 있으니 utc로 변환
-    due_date_utc = due_date.astimezone(timezone.utc)
+    due_date_kst = due_date.replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
-    day_diff = (due_date_utc.date() - now_utc.date()).days
+    day_diff = (due_date_kst.date() - now_kst.date()).days
 
     if day_diff <= 0:
         return "D-0"
