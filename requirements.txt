@@ -1,0 +1,3 @@
+PyGithub
+notion-client
+python-dotenv

@@ -1,0 +1,18 @@
+# action.yml
+name: "Notion D-Day Labler"
+description: "Labels D-Day from Notion page's field."
+author: "ChangHwan Lee"
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  
+inputs:
+  GITHUB_TOKEN:
+    description: "GitHub token for API calls."
+    required: true
+  PR_NUMBER:
+    description: "Pull Request number."
+    required: false
+  NOTION_TOKEN:
+    description: "Notion API Token."
+    required: true
