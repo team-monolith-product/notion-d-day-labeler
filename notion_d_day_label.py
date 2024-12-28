@@ -49,7 +49,7 @@ def main():
         pr_number = int(pr_number_str)
         pr = repo.get_pull(pr_number)
         update_d_day_label_for_pr(notion, pr)
-    elif event_name == "schedule":
+    elif event_name == "schedule" or event_name == "workflow_dispatch":
         pulls = repo.get_pulls(state="open")
         for pr in pulls:
             update_d_day_label_for_pr(notion, pr)
