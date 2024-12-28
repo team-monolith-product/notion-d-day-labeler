@@ -99,7 +99,10 @@ def update_d_day_label_for_pr(
 
     # 3) Fetch Notion page date
     field_date_value = notion_page.get("properties", {}).get("타임라인", {}).get("date", {})
-    notion_page_date_str = field_date_value.get("end") or field_date_value.get("start")
+    if field_date_value:
+        notion_page_date_str = field_date_value.get("end") or field_date_value.get("start")
+    else:
+        notion_page_date_str = None
 
     d_day_label = calculate_d_day_label(notion_page_date_str)
 
