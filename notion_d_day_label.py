@@ -76,7 +76,9 @@ def update_d_day_label_for_pr(
 
     # 2) Extract Task ID from PR title
     task_id = extract_dynamic_task_id(
-        title, [prefix["prefix"] for prefix in db_name_prefixes])
+        title,
+        [prefix["prefix"] for prefix in db_name_prefixes if prefix["prefix"]],
+    )
     if task_id:
         print(f"Extracted Task ID: {task_id}")
     else:
@@ -190,11 +192,11 @@ def extract_notion_db_name_prefixes(notion: NotionClient) -> list[dict]:
         {
             "prefix": property["unique_id"]["prefix"],
             "database_id": db["id"],
-            "property_name": property["name"]
+            "property_name": property["name"],
         }
         for db in databases
         for property in db["properties"].values()
-        if property["type"] == "unique_id"
+        if property["type"] == "unique_id" and property["unique_id"].get("prefix")
     ]
 
 
@@ -210,8 +212,13 @@ def extract_dynamic_task_id(title: str, prefixes: list[str]) -> str | None:
         추출된 Task ID (예: 'TASK-1234') 또는 None
     """
     # 접두사를 포함한 정규식을 동적으로 생성
-    pattern = r"(" + "|".join(re.escape(prefix)
-                              for prefix in prefixes) + r")[\-\s](\d+)"
+    prefixes = [p for p in prefixes if p]
+    if not prefixes:
+        return None
+
+    pattern = (
+        r"(" + "|".join(re.escape(prefix) for prefix in prefixes) + r")[\-\s](\d+)"
+    )
     match = re.search(pattern, title, re.IGNORECASE)
     if match:
         return f"{match.group(1).upper()}-{match.group(2)}"  # 예: TASK-1234
