@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 import dotenv
 
-from github import Github, UnknownObjectException
+from github import Github, Auth, UnknownObjectException
 from github.PullRequest import PullRequest
 
 from notion_client import Client as NotionClient
@@ -39,8 +39,10 @@ def main():
             "GITHUB_EVENT_NAME, GITHUB_TOKEN, GITHUB_REPOSITORY, NOTION_TOKEN."
         )
 
-    g = Github(github_token)
-    notion = NotionClient(auth=notion_token)
+    auth = Auth.Token(github_token)
+    g = Github(auth=auth)
+    # API 버전 2025-09-03을 사용하여 data_source 지원 활성화
+    notion = NotionClient(auth=notion_token, notion_version="2025-09-03")
     repo = g.get_repo(repo_name)
 
     if event_name == "pull_request":
@@ -87,12 +89,12 @@ def update_d_day_label_for_pr(
 
     prefix = task_id.split("-")[0]
     number = int(task_id.split("-")[1])
-    database_id, property_name = next(
-        (db_name_prefix["database_id"], db_name_prefix["property_name"])
+    database_id, data_source_id, property_name = next(
+        (db_name_prefix["database_id"], db_name_prefix["data_source_id"], db_name_prefix["property_name"])
         for db_name_prefix in db_name_prefixes if db_name_prefix["prefix"].lower() == prefix.lower()
     )
 
-    notion_page = search_page(notion, database_id, property_name, number)
+    notion_page = search_page(notion, data_source_id, property_name, number)
     if notion_page:
         print(f"Fetched Notion Page ID: {notion_page['id']}")
     else:
@@ -177,12 +179,14 @@ def extract_notion_db_name_prefixes(notion: NotionClient) -> list[dict]:
         [{
             "prefix": "TASK",
             "database_id": "12345678-1234-1234-1234-1234567890ab",
+            "data_source_id": "12345678-1234-1234-1234-1234567890ab",
             "property_name": "ID"
         }]
     """
-    databases = notion.search(
+    # API 버전 2025-09-03부터 search API는 data_source를 반환합니다
+    data_sources = notion.search(
         filter={
-            "value": "database",
+            "value": "data_source",
             "property": "object"
         }
     )["results"]
@@ -191,11 +195,12 @@ def extract_notion_db_name_prefixes(notion: NotionClient) -> list[dict]:
     return [
         {
             "prefix": property["unique_id"]["prefix"],
-            "database_id": db["id"],
+            "database_id": ds["parent"]["database_id"],
+            "data_source_id": ds["id"],
             "property_name": property["name"],
         }
-        for db in databases
-        for property in db["properties"].values()
+        for ds in data_sources
+        for property in ds["properties"].values()
         if property["type"] == "unique_id" and property["unique_id"].get("prefix")
     ]
 
@@ -227,7 +232,7 @@ def extract_dynamic_task_id(title: str, prefixes: list[str]) -> str | None:
 
 def search_page(
     notion: NotionClient,
-    database_id: str,
+    data_source_id: str,
     property_name: str,
     number: int
 ) -> dict | None:
@@ -236,19 +241,25 @@ def search_page(
 
     Args:
         notion (NotionClient)
-        database_id (str): 노션 데이터베이스 ID
+        data_source_id (str): 노션 데이터 소스 ID
         property_name (str): Task ID를 저장하는 속성 이름
         number (int): 노션 페이지의 Task ID
 
     Returns:
         노션 페이지의 정보 또는 None
     """
-    response = notion.databases.query(
-        database_id=database_id,
-        filter={
-            "property": property_name,
-            "unique_id": {
-                "equals": number
+    # API 버전 2025-09-03부터 data_source_id를 사용합니다
+    # notion_client 라이브러리가 아직 data_sources API를 지원하지 않을 수 있으므로
+    # request 메서드를 직접 사용합니다
+    response = notion.request(
+        path=f"data_sources/{data_source_id}/query",
+        method="POST",
+        body={
+            "filter": {
+                "property": property_name,
+                "unique_id": {
+                    "equals": number
+                }
             }
         }
     )
